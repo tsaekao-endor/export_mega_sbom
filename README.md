@@ -35,19 +35,28 @@ Generate a consolidated CycloneDX SBOM (Software Bill of Materials) by exporting
 
 ### Basic Usage
 
-1. Create a text file with your project names (one per line). Comments (lines starting with `#`) are supported:
-   ```
-   # GitHub projects
-   https://github.com/your-org/project1.git
-   https://github.com/your-org/project2.git
-   
-   # Azure DevOps projects
-   https://dev.azure.com/your-org/project3/_git/project3
-   ```
+**Step 1:** Create a text file containing the projects you want to include in your mega SBOM (one project per line):
 
-2. Run the script:
+```
+https://github.com/your-org/project1.git
+https://github.com/your-org/project2.git
+https://dev.azure.com/your-org/project3/_git/project3
+```
+
+You can create this file manually, or use the Endor Labs API to generate it automatically:
+
+```bash
+endorctl api list -r Project -n your-namespace \
+  --traverse \
+  --filter 'meta.name matches "your-filter"' \
+  --field-mask=meta.name \
+  --list-all \
+| jq -r '.list.objects[].meta.name' > projects.txt
+```
+
+**Step 2:** Run the script with your project list:
    ```bash
-   python3 make_mega_sbom.py \
+   python make_mega_sbom.py \
      -n your-namespace \
      -p projects.txt \
      -o mega-sbom.json \
@@ -70,37 +79,37 @@ Generate a consolidated CycloneDX SBOM (Software Bill of Materials) by exporting
 
 **Export with child namespace traversal (default):**
 ```bash
-python3 make_mega_sbom.py \
-  -n acme-corp \
-  -p projects_acme.txt \
-  -o acme-mega-sbom.json \
-  --portfolio-name "ACME Corp Portfolio"
+python make_mega_sbom.py \
+  -n my-namespace \
+  -p projects.txt \
+  -o mega-sbom.json \
+  --portfolio-name "My Portfolio"
 ```
 
 **Export with debug output to see namespace discovery:**
 ```bash
-python3 make_mega_sbom.py \
-  -n acme-corp \
-  -p projects_acme.txt \
-  -o acme-mega-sbom.json \
+python make_mega_sbom.py \
+  -n my-namespace \
+  -p projects.txt \
+  -o mega-sbom.json \
   --debug
 ```
 
 **Export from single namespace only (no child traversal):**
 ```bash
-python3 make_mega_sbom.py \
-  -n acme-corp \
-  -p projects_acme.txt \
-  -o acme-mega-sbom.json \
+python make_mega_sbom.py \
+  -n my-namespace \
+  -p projects.txt \
+  -o mega-sbom.json \
   --no-child-namespaces
 ```
 
 **Increase traversal depth for deep namespace hierarchies:**
 ```bash
-python3 make_mega_sbom.py \
-  -n acme-corp \
-  -p projects_acme.txt \
-  -o acme-mega-sbom.json \
+python make_mega_sbom.py \
+  -n my-namespace \
+  -p projects.txt \
+  -o mega-sbom.json \
   --max-depth 10
 ```
 
@@ -111,20 +120,20 @@ python3 make_mega_sbom.py \
 The script automatically discovers child namespaces using the Endor Labs API. For example, given this namespace hierarchy:
 
 ```
-acme-corp
-├── ado-app
-│   └── acme-ado-org
+my-namespace
+├── sub-namespace-1
+│   └── sub-namespace-1a
 │       ├── project-a
 │       └── project-b
-├── github-app
-│   └── acme-github-org
-└── gitlab
+├── sub-namespace-2
+│   └── sub-namespace-2a
+└── sub-namespace-3
 ```
 
 The script will:
-1. Query `acme-corp` for direct children → finds `ado-app`, `github-app`, `gitlab`
-2. Query `acme-corp.ado-app` for children → finds `acme-ado-org`
-3. Query `acme-corp.ado-app.acme-ado-org` for children → finds `project-a`, `project-b`
+1. Query `my-namespace` for direct children → finds `sub-namespace-1`, `sub-namespace-2`, `sub-namespace-3`
+2. Query `my-namespace.sub-namespace-1` for children → finds `sub-namespace-1a`
+3. Query `my-namespace.sub-namespace-1.sub-namespace-1a` for children → finds `project-a`, `project-b`
 4. Continue until max depth or no more children
 
 ### Project Resolution
@@ -149,33 +158,33 @@ The merged SBOM:
 | `<output>.json` | The merged CycloneDX SBOM |
 | `<output-prefix>-failed_projects.txt` | List of projects that failed to export (only created if there are failures) |
 
-For example, if you use `-o acme-mega-sbom.json`, failures will be written to `acme-failed_projects.txt`.
+For example, if you use `-o mega-sbom.json`, failures will be written to `mega-sbom-failed_projects.txt`.
 
 ## Sample Output
 
 ```
-Discovering child namespaces under 'acme-corp'...
-  Found child namespace: acme-corp.ado-app (depth 1)
-  Found child namespace: acme-corp.github-app (depth 1)
-  Found child namespace: acme-corp.ado-app.acme-ado-org (depth 2)
+Discovering child namespaces under 'my-namespace'...
+  Found child namespace: my-namespace.sub-namespace-1 (depth 1)
+  Found child namespace: my-namespace.sub-namespace-2 (depth 1)
+  Found child namespace: my-namespace.sub-namespace-1.sub-namespace-1a (depth 2)
 Found 4 namespace(s):
-    - acme-corp
-    - acme-corp.ado-app
-    - acme-corp.github-app
-    - acme-corp.ado-app.acme-ado-org
-Loaded 10 project(s) from projects_acme.txt
+    - my-namespace
+    - my-namespace.sub-namespace-1
+    - my-namespace.sub-namespace-2
+    - my-namespace.sub-namespace-1.sub-namespace-1a
+Loaded 10 project(s) from projects.txt
 Exporting CycloneDX SBOMs for 10 projects...
-  [1/10] https://github.com/acme/project1.git
-  [2/10] https://dev.azure.com/acme/project2/_git/project2
-    (found in child namespace: acme-corp.ado-app.acme-ado-org)
+  [1/10] https://github.com/my-org/project1.git
+  [2/10] https://dev.azure.com/my-org/project2/_git/project2
+    (found in child namespace: my-namespace.sub-namespace-1.sub-namespace-1a)
   ...
 
 Namespace distribution:
-  acme-corp: 6 project(s)
-  acme-corp.ado-app.acme-ado-org: 4 project(s)
+  my-namespace: 6 project(s)
+  my-namespace.sub-namespace-1.sub-namespace-1a: 4 project(s)
 
 Merging SBOMs...
-Done. Wrote acme-mega-sbom.json
+Done. Wrote mega-sbom.json
 ```
 
 ## Troubleshooting
@@ -201,18 +210,4 @@ Done. Wrote acme-mega-sbom.json
 
 - This warning can be ignored, but consider updating: `endorctl update`
 
-## Scripts
-
-| Script | Description |
-|--------|-------------|
-| `make_mega_sbom.py` | Main script with child namespace traversal support |
-| `make_mega_sbom_old.py` | Original version that only searches within a single namespace |
-
-## License
-
-MIT License - See LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please submit a pull request or open an issue for any bugs or feature requests.
 
