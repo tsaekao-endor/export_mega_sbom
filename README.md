@@ -35,7 +35,7 @@ Generate a consolidated CycloneDX SBOM (Software Bill of Materials) by exporting
 
 ### Basic Usage
 
-**Step 1:** Create a text file containing the projects you want to include in your mega SBOM (one project per line):
+**Step 1:** Create a text file containing the projects you want to include in your mega SBOM (one project per line). You can have something like the following in a "projects.txt" file to pass into the script:
 
 ```
 https://github.com/your-org/project1.git
@@ -43,7 +43,7 @@ https://github.com/your-org/project2.git
 https://dev.azure.com/your-org/project3/_git/project3
 ```
 
-You can create this file manually, or use the Endor Labs API to generate it automatically:
+You can create this file manually, or use the Endor Labs API to generate it automatically. This example will grab projects that contain a certain name and automaticlly add them to the "projects.txt" file that we can use to pass into the script:
 
 ```bash
 endorctl api list -r Project -n your-namespace \
@@ -54,7 +54,7 @@ endorctl api list -r Project -n your-namespace \
 | jq -r '.list.objects[].meta.name' > projects.txt
 ```
 
-**Step 2:** Run the script with your project list:
+**Step 2:** Run the script by passing in your namespace, the name of the JSON output for the mega SBOM, and the portfolio name to populate the metadata at the top of the SBOM. Also add your project list in the "projects.txt" file:
    ```bash
    python make_mega_sbom.py \
      -n your-namespace \
@@ -70,7 +70,7 @@ endorctl api list -r Project -n your-namespace \
 | `-n, --namespace` | Yes | - | Parent Endor namespace (will also search child namespaces) |
 | `-p, --projects-file` | Yes | - | Path to text file with project names (one per line) |
 | `-o, --output` | No | `mega-sbom.cyclonedx.json` | Output SBOM file path |
-| `--portfolio-name` | No | `Portfolio` | Name of the synthetic portfolio root component |
+| `--portfolio-name` | No | `Portfolio` | Name of the portfolio root component for metadata |
 | `--max-depth` | No | `5` | Maximum depth to traverse child namespaces |
 | `--no-child-namespaces` | No | `false` | Disable child namespace traversal |
 | `--debug` | No | `false` | Enable debug output for namespace discovery |
